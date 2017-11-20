@@ -6,14 +6,18 @@
 #include <functional>
 #include <algorithm>
 
+#include <iostream>
+#include <sstream>
 #include <limits>     // std::numeric_limits
 #include <cmath>
+#include <cstdint>    // uintptr_t
 
 #define UNTIL(x) while(not(x))
 
 namespace monte_carlo_tree_search
 {
 	constexpr int BOARD_SIZE = 3;
+	struct Tree;
     class Node
     {
     public:
@@ -30,6 +34,7 @@ namespace monte_carlo_tree_search
             for(auto &n : child)
                 delete n;
         }
+	    friend class Tree;
 	    
     public: // static zone
         static
@@ -111,9 +116,9 @@ namespace monte_carlo_tree_search
         {
             if(child.empty())
                 return this;
-            return *std::max_element(child.begin(), child.end(), [&on_step](const Node *A, const Node *B){
+            return (*std::max_element(child.begin(), child.end(), [&on_step](const Node *A, const Node *B){
                 return A->UCT(on_step) < B->UCT(on_step);
-            });
+		    }))->best_node(on_step);
         }
 
 	    Node& generate_all_child()
@@ -170,8 +175,7 @@ namespace monte_carlo_tree_search
             if(parent != nullptr)
                 parent->update_status(wins);
         }
-
-
+	    
     private:
         peice board[BOARD_SIZE][BOARD_SIZE];
         /* E == empty
@@ -197,6 +201,29 @@ namespace monte_carlo_tree_search
     {
 	    Tree(Node::peice p): root(p){}
         Node root;
+	    
+	    void export_to(std::ostream &o = std::cout)
+		{
+			o << "digraph monte_carlo_tree_search_result {\n";
+			visit(&root, o);
+			o << "}";
+		}
+
+	    void visit(Node *node, std::ostream &o)
+		{
+			o << "    " << uintptr_t(node) << "[label = \""
+			  << "wins/total: " << node->win << "/" << node->total << "\n"
+			  << node->board[0][0] << node->board[0][1] << node->board[0][2] << "\n"
+			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "\n"
+			  << node->board[2][0] << node->board[2][1] << node->board[2][2]
+			  << "\"]";
+			for(auto child: node->child)
+			{
+				o << "    " << uintptr_t(node)
+				  << " -> " << uintptr_t(child) << ";\n";
+				visit(child, o);
+			}
+		}
     };
 }
 
