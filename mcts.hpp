@@ -1,154 +1,203 @@
+#ifndef __MCTS_HPP__
+#define __MCTS_HPP__
+
 #include <vector>
 #include <random>
 #include <functional>
 #include <algorithm>
 
-#include <iostream>
-#include <cmath> 
+#include <limits>     // std::numeric_limits
+#include <cmath>
 
 #define UNTIL(x) while(not(x))
 
 namespace monte_carlo_tree_search
 {
-	class Node
-	{
-		enum peice{ EMPTY, O, X } board[4][4];
-		peice flip(peice p)
-		{
-			if(p == EMPTY)
-			{
-				std::cout << "warning: flip EMPTY peice\n";
-				return EMPTY;
-			}
-			return (p == O)? X: O;
-		}
-		/* E == empty
-		  |   | 1 | 2 | 3 |
-		  | 1 |   |   |   |
-		  | 2 |   |   |   |
-		  | 3 |   |   |   |
-		 */
-		std::random_device dev;
-		std::mt19937 engine;
-		std::uniform_int_distribution<int> dist;
-		std::function<int(void)> random;
-		int win = 0, lose = 0;
-		
-		int total() const { return win + lose; }
-		double win_percentage() const { return (total() == 0)? 0: static_cast<double>(win) / total(); }
-		double UCT(int total_eval) const
-		{
-			return win_percentage() + std::sqrt(2) * std::sqrt(std::log(total_eval) / total());
-		}
-		
-		static
-    	peice winner(peice eval_board[4][4])
-		{
-			if((eval_board[1][1] == eval_board[1][2] && eval_board[1][2] == eval_board[1][3]) ||
-			   (eval_board[1][1] == eval_board[2][1] && eval_board[2][1] == eval_board[3][1]) )
-				return eval_board[1][1];
-			
-			else if  ((eval_board[2][1] == eval_board[2][2] && eval_board[2][2] == eval_board[2][3]) ||
-			          (eval_board[1][2] == eval_board[2][2] && eval_board[2][2] == eval_board[3][2]) ||
-			          (eval_board[1][1] == eval_board[2][2] && eval_board[2][2] == eval_board[3][3]) ||
-			          (eval_board[3][1] == eval_board[2][2] && eval_board[2][2] == eval_board[1][3]) )
-				return eval_board[2][2];
-			
-			else if  ((eval_board[1][3] == eval_board[2][3] && eval_board[2][3] == eval_board[3][3]) ||
-			          (eval_board[3][1] == eval_board[3][2] && eval_board[3][2] == eval_board[3][3]) )
-				return eval_board[3][3];
-			
-			else
-				return EMPTY;
-		}
-		
-		Node * parent = nullptr;
-		std::vector<Node *> child;
+	constexpr int BOARD_SIZE = 3;
+    class Node
+    {
+    public:
+	    enum peice{ EMPTY, O, X };
+	    Node(peice p): player(p)
+        {
+            for(int i(0); i < BOARD_SIZE; i++)
+                for(int j(0); j < BOARD_SIZE; j++)
+                    board[i][j] = EMPTY;
+        }
 
-	public:
-		Node(): engine(dev()), dist(1, 3), random(std::bind(dist, engine)){}
+        ~Node()
+        {
+            for(auto &n : child)
+                delete n;
+        }
 	    
-		~Node()
-		{
-			for(auto &n : child)
-				delete n;		
-		}
+    public: // static zone
+        static
+        peice flip(peice p)
+        {
+            if(p == EMPTY)
+                return EMPTY;
+            
+            return (p == O)? X: O;
+        }
 
-		Node& set_board(peice src[4][4])
-		{
-			for(int i(1); i <= 3; i++)
-				for(int j(1); j <= 3; j++)
-					board[i][j] = src[i][j];
-			return *this;
-		}
-		
-		Node& add_child(Node * n)
-		{
-			child.push_back(n);
-			n->parent = this;
-			return *this;
-		}
+	    static
+        peice winner(peice eval_board[BOARD_SIZE][BOARD_SIZE])
+        {
+            if((eval_board[0][0] == eval_board[0][1] && eval_board[0][1] == eval_board[0][2]) ||
+               (eval_board[0][0] == eval_board[1][0] && eval_board[1][0] == eval_board[2][0]) )
+                return eval_board[0][0];
 
-		Node* best_node(int on_step)
-		{
-			if(child.empty())
-				return this;
-			
-			std::max_element(child.begin(), child.end(), [&on_step](const Node *A, const Node *B){
-				return A->UCT(on_step) < B->UCT(on_step);   
-			});
-			return (*child.begin())->best_node(on_step);
-		}
+            else if  ((eval_board[1][0] == eval_board[1][1] && eval_board[1][1] == eval_board[1][2]) ||
+                      (eval_board[0][1] == eval_board[1][1] && eval_board[1][1] == eval_board[2][1]) ||
+                      (eval_board[0][0] == eval_board[1][1] && eval_board[1][1] == eval_board[2][2]) ||
+                      (eval_board[2][0] == eval_board[1][1] && eval_board[1][1] == eval_board[0][2]) )
+                return eval_board[1][1];
 
-		
-		void random_play(peice p)
+            else if  ((eval_board[0][2] == eval_board[1][2] && eval_board[1][2] == eval_board[2][2]) ||
+                      (eval_board[2][0] == eval_board[2][1] && eval_board[2][1] == eval_board[2][2]) )
+                return eval_board[2][2];
+
+            else
+                return EMPTY;
+        }
+	    
+	    static
+	    std::tuple<int, int> gen_pos_from(peice brd[BOARD_SIZE][BOARD_SIZE])
 		{
-			std::function<std::tuple<int, int>(void)> gen_pos = [this]
+			int x(0), y(0);
+			bool full = true;
+			for(int i(0); i < BOARD_SIZE; i++)
+				for(int j(0); j < BOARD_SIZE; j++)
+					if(brd[i][j] == EMPTY)
+					    {full = false; break;}
+			if(not full)
 			{
-				int x(0), y(0), full(0);
 				do
 				{
-					x = this->random();
-					y = this->random();
-				} UNTIL (this->board[x][y] == EMPTY || ++full == 10);
-				return (full >= 10)? std::make_tuple(0, 0): std::make_tuple(x, y);
-			};
-
-			Node * child = new Node;
-			int x, y;
-			std::tie(x, y) = gen_pos();
-			child->set_board(board);
-			child->board[x][y] = p;
-			this->add_child(child);
-
-			peice eval_board[4][4];
-			for(int i(1); i <= 3; i++)
-				for(int j(1); j <= 3; j++)
-					eval_board[i][j] = this->board[i][j];
-
-			
-			while(std::tie(x, y) = gen_pos(), x != 0)
-			{
-				p = flip(p);
-				eval_board[x][y] = p;
-
-				peice champ = winner(eval_board);
-				if(champ == O)
-				{
-					
-					break;
-				}
-				else if(champ == X)
-				{
-					break;
-				}
+					x = random_in(0, BOARD_SIZE - 1);
+					y = random_in(0, BOARD_SIZE - 1);
+				} UNTIL (brd[x][y] == EMPTY);
+				return std::make_tuple(x, y);
 			}
+			return std::make_tuple(0, 0);
+		}
+	    
+	    static
+	    int random_in(int lower_bound, int higher_bound /* inclusive */)
+	    {
+		    static std::mt19937 engine{std::random_device{}()};
+		    std::uniform_int_distribution<int> distribution(lower_bound, higher_bound);
+		    return distribution(engine);
+	    }
+	    
+    public: // methods
+        Node& set_board(peice src[BOARD_SIZE][BOARD_SIZE])
+        {
+            for(int i(0); i < BOARD_SIZE; i++)
+                for(int j(0); j < BOARD_SIZE; j++)
+                    board[i][j] = src[i][j];
+            return *this;
+        }
+
+        Node& add_child(Node * n)
+        {
+            child.push_back(n);
+            n->parent = this;
+            return *this;
+        }
+
+        Node* best_node(int on_step)
+        {
+            if(child.empty())
+                return this;
+            return *std::max_element(child.begin(), child.end(), [&on_step](const Node *A, const Node *B){
+                return A->UCT(on_step) < B->UCT(on_step);
+            });
+        }
+
+	    Node& generate_all_child()
+		{
+			for(int i(0); i < BOARD_SIZE; i++)
+                for(int j(0); j < BOARD_SIZE; j++)
+	                if(board[i][j] == EMPTY)
+	                {
+		                Node * child = new Node(flip(this->player));
+		                child->set_board(this->board);
+		                child->board[i][j] = flip(this->player);
+		                this->add_child(child);
+	                }
+			return *this;
 		}
 
-	};
+        Node& random_play()
+        {
+	        if(child.empty())
+		        generate_all_child();
+	        if(child.empty())
+		        return *this; // draw; end game;
+	        
+	        Node* random_child = child.at(random_in(0, static_cast<int>(child.size()) - 1));
+            peice eval_board[BOARD_SIZE][BOARD_SIZE];
+            for(int i(0); i < BOARD_SIZE; i++)
+                for(int j(0); j < BOARD_SIZE; j++)
+                    eval_board[i][j] = random_child->board[i][j];
+            peice p = flip(random_child->player);
+            for(;;)
+            {
+	            int x, y;
+                std::tie(x, y) = gen_pos_from(eval_board);
+                if(x == 0)
+                    break;
+                p = flip(p);
+                eval_board[x][y] = p;
 
-	struct Tree
-	{
-		Node root;
-	};
+                peice champ = winner(eval_board);
+                if(champ != EMPTY)
+                {
+	                random_child->update_status(champ /* wins */);
+	                break;
+                }        
+            }
+            return *this;
+        }
+
+	    void update_status(peice wins)
+        {
+            if(wins == this->player)
+                this->win++;
+            this->total++;
+            if(parent != nullptr)
+                parent->update_status(wins);
+        }
+
+
+    private:
+        peice board[BOARD_SIZE][BOARD_SIZE];
+        /* E == empty
+         |   | 0 | 1 | 2 |
+         | 0 |   |   |   |
+         | 1 |   |   |   |
+         | 2 |   |   |   |
+         */
+        int win = 0, total = 0;
+
+        double win_percentage() const { return (total == 0)? std::numeric_limits<int>::max(): static_cast<double>(win) / total; }
+        double UCT(int total_eval) const
+        {
+	        return win_percentage() + ((total == 0)? 0: std::sqrt(2) * std::sqrt(std::log(total_eval) / total));
+        }
+
+        Node * parent = nullptr;
+	    peice  player;
+        std::vector<Node *> child;
+    };
+
+    struct Tree
+    {
+	    Tree(Node::peice p): root(p){}
+        Node root;
+    };
 }
+
+#endif /* __MCTS_HPP__ */
