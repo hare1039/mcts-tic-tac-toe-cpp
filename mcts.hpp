@@ -112,13 +112,13 @@ namespace monte_carlo_tree_search
             return *this;
         }
 
-        Node* best_node(int on_step)
+        Node* best_node()
         {
             if(child.empty())
                 return this;
-            return (*std::max_element(child.begin(), child.end(), [&on_step](const Node *A, const Node *B){
-                return A->UCT(on_step) < B->UCT(on_step);
-		    }))->best_node(on_step);
+            return (*std::max_element(child.begin(), child.end(), [](const Node *A, const Node *B){
+                return A->UCT() < B->UCT();
+		    }))->best_node();
         }
 
 	    Node& generate_all_child()
@@ -186,10 +186,10 @@ namespace monte_carlo_tree_search
          */
         int win = 0, total = 0;
 
-        double win_percentage() const { return (total == 0)? std::numeric_limits<int>::max(): static_cast<double>(win) / total; }
-        double UCT(int total_eval) const
+        double UCT() const
         {
-	        return win_percentage() + ((total == 0)? 0: std::sqrt(2) * std::sqrt(std::log(total_eval) / total));
+	        return (total == 0)? std::numeric_limits<double>::max():
+		        static_cast<double>(win) / total + std::sqrt(2) * std::sqrt(std::log((parent)? parent->total: 1) / total);
         }
 
         Node * parent = nullptr;
@@ -199,7 +199,7 @@ namespace monte_carlo_tree_search
 
     struct Tree
     {
-	    Tree(Node::peice p): root(p){}
+	    Tree(Node::peice p): root(Node::flip(p)){}
         Node root;
 	    
 	    void export_to(std::ostream &o = std::cout)
@@ -212,7 +212,7 @@ namespace monte_carlo_tree_search
 	    void visit(Node *node, std::ostream &o)
 		{
 			o << "    " << uintptr_t(node) << "[label = \""
-			  << "wins/total: " << node->win << "/" << node->total << "\n"
+			  << "wins/total: " << node->win << "/" << node->total << ", " << (!node->parent? 0: node->UCT()) << "\n"
 			  << node->board[0][0] << node->board[0][1] << node->board[0][2] << "\n"
 			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "\n"
 			  << node->board[2][0] << node->board[2][1] << node->board[2][2]
