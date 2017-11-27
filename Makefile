@@ -12,7 +12,7 @@ all: main.cpp
 clean:
 	rm $(TARGET) $(OBJECT)
 
-.PHONE: eval
+.PHONY: svg
 svg: all
 	./mcts graph.dot &&\
 	dot -Tsvg graph.dot -o graph.svg
