@@ -123,6 +123,7 @@ namespace monte_carlo_tree_search
 
 	    Node& generate_all_child()
 		{
+			bool next_step_wins = false;
 			for(int i(0); i < BOARD_SIZE; i++)
                 for(int j(0); j < BOARD_SIZE; j++)
 	                if(board[i][j] == EMPTY)
@@ -131,7 +132,17 @@ namespace monte_carlo_tree_search
 		                child->set_board(this->board);
 		                child->board[i][j] = flip(this->player);
 		                this->add_child(child);
+		                if(winner(child->board) == flip(this->player))
+			                next_step_wins = true;
 	                }
+
+			if(next_step_wins)
+				this->child.erase(
+					std::remove_if(this->child.begin(),
+					               this->child.end(),
+					               [this](Node *n){ return winner(n->board) != Node::flip(this->player)? delete n, true: false ;}),
+					this->child.end());
+			
 			return *this;
 		}
 
