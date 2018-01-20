@@ -135,7 +135,6 @@ namespace monte_carlo_tree_search
 		                if(winner(child->board) == flip(this->player))
 			                next_step_wins = true;
 	                }
-
 			if(next_step_wins)
 				this->child.erase(
 					std::remove_if(this->child.begin(),
@@ -143,17 +142,31 @@ namespace monte_carlo_tree_search
 					               [this](Node *n){ return winner(n->board) != Node::flip(this->player)? delete n, true: false ;}),
 					this->child.end());
 			
+			
 			return *this;
 		}
 
         Node& random_play()
         {
+	        peice d = winner(this->board);
+	        if(EMPTY != d)
+	        {
+		        this->update_status(d);
+		        return *this;
+	        }
+
 	        if(child.empty())
 		        generate_all_child();
 	        if(child.empty())
+	        {
+		        this->update_status(EMPTY);
 		        return *this; // draw; end game;
+	        }
+
 	        
 	        Node* random_child = child.at(random_in(0, static_cast<int>(child.size()) - 1));
+		        
+
             peice eval_board[BOARD_SIZE][BOARD_SIZE];
             for(int i(0); i < BOARD_SIZE; i++)
                 for(int j(0); j < BOARD_SIZE; j++)
@@ -164,7 +177,11 @@ namespace monte_carlo_tree_search
 	            int x, y;
                 std::tie(x, y) = gen_pos_from(eval_board);
                 if(x == 0)
-                    break;
+                {
+	                this->update_status(EMPTY);
+	                break;
+                }
+                    
                 p = flip(p);
                 eval_board[x][y] = p;
 
@@ -212,7 +229,19 @@ namespace monte_carlo_tree_search
     {
 	    Tree(Node::peice p): root(Node::flip(p)){}
         Node root;
-	    
+	    void set()
+		    {
+			    root.board[0][0] = Node::EMPTY;
+			    root.board[0][1] = Node::EMPTY;
+			    root.board[0][2] = Node::O;
+			    root.board[1][0] = Node::EMPTY;
+			    root.board[1][1] = Node::O;
+			    root.board[1][2] = Node::X;
+			    root.board[2][0] = Node::X;
+			    root.board[2][1] = Node::EMPTY;
+			    root.board[2][2] = Node::EMPTY;
+				    
+		    }
 	    void export_to(std::ostream &o = std::cout)
 		{
 			o << "digraph monte_carlo_tree_search_result {\n";

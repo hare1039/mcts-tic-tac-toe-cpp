@@ -1,0 +1,4 @@
+* TODO hash
+* DONE make total right
+* TODO inherit
+* TODO draw
