@@ -231,19 +231,25 @@ namespace monte_carlo_tree_search
     {
 	    Tree(Node::peice p): root(Node::flip(p)){}
         Node root;
-	    void set()
-		    {
-			    root.board[0][0] = Node::EMPTY;
-			    root.board[0][1] = Node::EMPTY;
-			    root.board[0][2] = Node::O;
-			    root.board[1][0] = Node::EMPTY;
-			    root.board[1][1] = Node::O;
-			    root.board[1][2] = Node::X;
-			    root.board[2][0] = Node::X;
-			    root.board[2][1] = Node::EMPTY;
-			    root.board[2][2] = Node::EMPTY;
-				    
-		    }
+	    void set (std::string path)
+		{
+			std::fstream src{path, std::ios::in};
+			if (not src.is_open())
+				std::cerr << path << " cannot open\n";
+
+			for (int i{0}; i < 3; i++)
+			{
+				for (int j{0}; j < 3; j++)
+				{
+					char c = ' ';
+				    src >> c;
+					root.board[i][j] =
+						(c == 'O' || c == 'o')? Node::O:
+						(c == 'X' || c == 'x')? Node::X:
+						            Node::EMPTY;
+				}
+			}			    
+		}
 	    void export_to(std::ostream &o = std::cout)
 		{
 			o << "digraph monte_carlo_tree_search_result {\n";
@@ -254,7 +260,7 @@ namespace monte_carlo_tree_search
 	    void visit(Node *node, std::ostream &o)
 		{
 			o << "    " << uintptr_t(node) << "[label = \""
-			  << "Player " << node->player << "\n"
+			  << "Role: Player " << node->player << ", Next Player: " << Node::flip(node->player) << "\n"
 			  << "wins/total: " << node->win << "/" << node->total << ", " << (!node->parent? 0: node->UCT()) << "\n"
 			  << node->board[0][0] << node->board[0][1] << node->board[0][2] << "\n"
 			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "\n"
