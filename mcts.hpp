@@ -157,10 +157,12 @@ namespace monte_carlo_tree_search
 
 	        if(child.empty())
 		        generate_all_child();
+
+	        // No more children generated. => draw, but count as player 2 wins; end game;	        
 	        if(child.empty())
 	        {
-		        this->update_status(EMPTY);
-		        return *this; // draw; end game;
+		        this->update_status(peice::X);
+		        return *this; 
 	        }
 
 	        
@@ -252,6 +254,7 @@ namespace monte_carlo_tree_search
 	    void visit(Node *node, std::ostream &o)
 		{
 			o << "    " << uintptr_t(node) << "[label = \""
+			  << "Player " << node->player << "\n"
 			  << "wins/total: " << node->win << "/" << node->total << ", " << (!node->parent? 0: node->UCT()) << "\n"
 			  << node->board[0][0] << node->board[0][1] << node->board[0][2] << "\n"
 			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "\n"

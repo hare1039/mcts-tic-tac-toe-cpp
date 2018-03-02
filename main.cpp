@@ -7,7 +7,7 @@ int main(int argc, char *argv[])
     mcts::Node::peice p = mcts::Node::O;
     mcts::Tree tree(p);
     tree.set();
-    for(int i(0); i<100; i++)
+    for(int i(0); i<100000; i++)
     {
         mcts::Node * node = tree.root.best_node();
         node->random_play();
