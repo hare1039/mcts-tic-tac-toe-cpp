@@ -2,6 +2,7 @@
 #define __MCTS_HPP__
 
 #include <vector>
+#include <array>
 #include <random>
 #include <functional>
 #include <algorithm>
@@ -27,12 +28,14 @@ namespace monte_carlo_tree_search
             for(int i(0); i < BOARD_SIZE; i++)
                 for(int j(0); j < BOARD_SIZE; j++)
                     board[i][j] = EMPTY;
+            get_leafnode_list().add(this);
         }
 
         ~Node()
         {
             for(auto &n : child)
                 delete n;
+            get_leafnode_list().remove(this);
         }
 	    friend class Tree;
 	    
@@ -95,6 +98,12 @@ namespace monte_carlo_tree_search
 		    std::uniform_int_distribution<int> distribution(lower_bound, higher_bound);
 		    return distribution(engine);
 	    }
+
+	    static
+	    Node* best_node()
+        {
+	        return get_leafnode_list().max();
+        }
 	    
     public: // methods
         Node& set_board(peice src[BOARD_SIZE][BOARD_SIZE])
@@ -110,15 +119,6 @@ namespace monte_carlo_tree_search
             child.push_back(n);
             n->parent = this;
             return *this;
-        }
-
-        Node* best_node()
-        {
-            if(child.empty())
-                return this;
-            return (*std::max_element(child.begin(), child.end(), [](const Node *A, const Node *B){
-                return A->UCT() < B->UCT();
-		    }))->best_node();
         }
 
 	    Node& generate_all_child()
@@ -142,7 +142,6 @@ namespace monte_carlo_tree_search
 					               [this](Node *n){ return winner(n->board) != Node::flip(this->player)? delete n, true: false ;}),
 					this->child.end());
 			
-			
 			return *this;
 		}
 
@@ -154,7 +153,7 @@ namespace monte_carlo_tree_search
 		        this->update_status(d);
 		        return *this;
 	        }
-
+	        get_leafnode_list().remove(this);
 	        if(child.empty())
 		        generate_all_child();
 
@@ -207,7 +206,8 @@ namespace monte_carlo_tree_search
         }
 	    
     private:
-        peice board[BOARD_SIZE][BOARD_SIZE];
+//	    std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE>board[BOARD_SIZE][BOARD_SIZE];
+	    peice board[BOARD_SIZE][BOARD_SIZE];
         /* E == empty
          |   | 0 | 1 | 2 |
          | 0 |   |   |   |
@@ -222,11 +222,58 @@ namespace monte_carlo_tree_search
 		        static_cast<double>(win) / total + std::sqrt(2) * std::sqrt(std::log((parent)? parent->total: 1) / total);
         }
 
+	    struct Leafnode_collector
+	    {
+		    std::vector<Node *> data;
+		    Node* max() { return *data.end(); }
+
+		    Leafnode_collector& add(Node * n)
+			{
+				this->add(std::vector<Node *>{n});
+				return *this;
+			}
+		    
+		    Leafnode_collector& add(std::vector<Node *> const &x)
+			{
+			    for (auto i: x)
+				    data.push_back(i);	
+			    std::sort(data.begin(), data.end(), [](const Node *A, const Node *B) {
+				    return A->UCT() < B->UCT();
+				});
+			    return *this;
+			}
+		    
+		    Leafnode_collector& remove(Node * n)
+			{
+			    auto target = binary_find(data.begin(), data.end(), n);
+			    if (target != data.end())
+				    data.erase(target);
+			    return *this;
+			}
+
+	    	// copied from http://en.cppreference.com/w/cpp/algorithm/lower_bound
+
+		    template<class ForwardIt, class T, class Compare=std::less<Node *>>
+		    ForwardIt binary_find(ForwardIt first, ForwardIt last, const T& value, Compare comp={})
+			{
+			    first = std::lower_bound(first, last, value, comp);
+			    return first != last && !comp(value, *first) ? first : last;
+			}
+	    };
+	    
+	    static 
+	    Leafnode_collector& get_leafnode_list()
+		{
+			static Leafnode_collector candidate;
+			return candidate;
+		}
+	    
         Node * parent = nullptr;
 	    peice  player;
         std::vector<Node *> child;
     };
 
+	
     struct Tree
     {
 	    Tree(Node::peice p): root(Node::flip(p)){}
