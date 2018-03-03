@@ -315,11 +315,12 @@ namespace monte_carlo_tree_search
 			  << node->board[0][0] << node->board[0][1] << node->board[0][2] << "\n"
 			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "\n"
 			  << node->board[2][0] << node->board[2][1] << node->board[2][2]
-			  << "\"]";
+			  << "\"; "
+			  << "color = " << (node->player == Node::peice::O ? "blue": "red") << ";]\n";
 			for(auto child: node->child)
 			{
 				o << "    " << uintptr_t(node)
-				  << " -> " << uintptr_t(child) << ";\n";
+				  << " -> " << uintptr_t(child) << "[color = " << (node->player == Node::peice::O ? "blue": "red") << "];\n";
 				visit(child, o);
 			}
 		}

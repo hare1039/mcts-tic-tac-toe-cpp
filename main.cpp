@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     if (argc == 2)
     {
 	    std::fstream f(argv[1], std::ios::out);
+	    std::cout << "Generating graph to " << argv[1] << "\n";
 	    tree.export_to(f);
     }
     else
