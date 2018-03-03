@@ -31,27 +31,27 @@ namespace monte_carlo_tree_search
 
         ~Node()
         {
-            for(auto &n : child)
+            for (auto &n : child)
                 delete n;
             get_leafnode_list().remove(this);
         }
 	    friend class Tree;
-	    
+
     public: // static zone
         static
         peice flip(peice p)
         {
-            if(p == EMPTY)
+            if (p == EMPTY)
                 return EMPTY;
-            
+
             return (p == O)? X: O;
         }
 
 	    static
         peice winner(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> const &eval_board)
         {
-            if((eval_board[0][0] == eval_board[0][1] && eval_board[0][1] == eval_board[0][2]) ||
-               (eval_board[0][0] == eval_board[1][0] && eval_board[1][0] == eval_board[2][0]) )
+            if ((eval_board[0][0] == eval_board[0][1] && eval_board[0][1] == eval_board[0][2]) ||
+                (eval_board[0][0] == eval_board[1][0] && eval_board[1][0] == eval_board[2][0]) )
                 return eval_board[0][0];
 
             else if  ((eval_board[1][0] == eval_board[1][1] && eval_board[1][1] == eval_board[1][2]) ||
@@ -67,17 +67,17 @@ namespace monte_carlo_tree_search
             else
                 return EMPTY;
         }
-	    
+
 	    static
 	    std::tuple<int, int> gen_pos_from(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> const & brd)
 		{
 			int x(0), y(0);
 			bool full = true;
-			for(int i(0); i < BOARD_SIZE; i++)
-				for(int j(0); j < BOARD_SIZE; j++)
-					if(brd[i][j] == EMPTY)
+			for (int i(0); i < BOARD_SIZE; i++)
+				for (int j(0); j < BOARD_SIZE; j++)
+					if (brd[i][j] == EMPTY)
 					    {full = false; break;}
-			if(not full)
+			if (not full)
 			{
 				do
 				{
@@ -88,7 +88,7 @@ namespace monte_carlo_tree_search
 			}
 			return std::make_tuple(0, 0);
 		}
-	    
+
 	    static
 	    int random_in(int lower_bound, int higher_bound /* inclusive */)
 	    {
@@ -102,7 +102,7 @@ namespace monte_carlo_tree_search
         {
 	        return get_leafnode_list().max();
         }
-	    
+
     public: // methods
 	    Node& set_board(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> &src)
         {
@@ -120,86 +120,85 @@ namespace monte_carlo_tree_search
 	    Node& generate_all_child()
 		{
 			bool next_step_wins = false;
-			for(int i(0); i < BOARD_SIZE; i++)
-                for(int j(0); j < BOARD_SIZE; j++)
-	                if(board[i][j] == EMPTY)
+			for (int i(0); i < BOARD_SIZE; i++)
+                for (int j(0); j < BOARD_SIZE; j++)
+	                if (board[i][j] == EMPTY)
 	                {
 		                Node * child = new Node(flip(this->player));
 		                child->set_board(this->board);
 		                child->board[i][j] = flip(this->player);
 		                this->add_child(child);
-		                if(winner(child->board) == flip(this->player))
+		                if (winner(child->board) == flip(this->player))
 			                next_step_wins = true;
 	                }
-			if(next_step_wins)
+			if (next_step_wins)
 				this->child.erase(
 					std::remove_if(this->child.begin(),
 					               this->child.end(),
 					               [this](Node *n){ return winner(n->board) != Node::flip(this->player)? delete n, true: false ;}),
 					this->child.end());
-			
+
 			return *this;
 		}
 
         Node& random_play()
         {
-//	        std::cout << "  removed: " << this << "\n"; 
-	        get_leafnode_list().remove(this);//.remove(this->parent);
+	        get_leafnode_list().remove(this);
 	        peice d = winner(this->board);
-	        if(EMPTY != d)
+	        if (EMPTY != d)
 	        {
 		        this->update_status(d);
 		        return *this;
 	        }
-	        if(child.empty())
+	        if (child.empty())
 		        generate_all_child();
 
-	        // No more children generated. => draw, but count as player 2 wins; end game;	        
-	        if(child.empty())
+	        // No more children generated. => draw, but count as player 2 wins; end game;
+	        if (child.empty())
 	        {
 		        this->update_status(peice::X);
-		        return *this; 
+		        return *this;
 	        }
 
-	        
+
 	        Node* random_child = child.at(random_in(0, static_cast<int>(child.size()) - 1));
-		        
+
 
 	        std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> eval_board;
 	        eval_board = random_child->board;
             peice p = flip(random_child->player);
-            for(;;)
+            for (;;)
             {
 	            int x, y;
                 std::tie(x, y) = gen_pos_from(eval_board);
-                if(x == 0)
+                if (x == 0)
                 {
 	                this->update_status(EMPTY);
 	                break;
                 }
-                    
+
                 p = flip(p);
                 eval_board[x][y] = p;
 
                 peice champ = winner(eval_board);
-                if(champ != EMPTY)
+                if (champ != EMPTY)
                 {
 	                random_child->update_status(champ /* wins */);
 	                break;
-                }        
+                }
             }
             return *this;
         }
 
 	    void update_status(peice wins)
         {
-            if(wins == this->player)
+            if (wins == this->player)
                 this->win++;
             this->total++;
-            if(parent != nullptr)
+            if (parent != nullptr)
                 parent->update_status(wins);
         }
-	    
+
     private:
 	    std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> board;
 //	    peice board[BOARD_SIZE][BOARD_SIZE];
@@ -226,19 +225,17 @@ namespace monte_carlo_tree_search
 			{
 				return this->add(std::vector<Node *>{n});
 			}
-		    
+
 		    Leafnode_collector& add(std::vector<Node *> const &x)
 			{
 			    for (auto i: x)
-				    data.push_back(i);	
-//			    this->show();
+				    data.push_back(i);
 			    return *this;
 			}
-		    
+
 		    Leafnode_collector& remove(Node * n)
 			{
 			    auto target = find(data.begin(), data.end(), n);
-//			    std::cout << "  find: " << *target << "\n";
 			    if (target != data.end())
 				    data.erase(target);
 
@@ -252,7 +249,7 @@ namespace monte_carlo_tree_search
 					std::cout << "    " << n << " => " << n->UCT() << "\n";
 			}
 
-	    	// copied from http://en.cppreference.com/w/cpp/algorithm/lower_bound
+	    	// ref from http://en.cppreference.com/w/cpp/algorithm/lower_bound
 		    template<class ForwardIt, class T, class Compare=std::equal_to<Node *>>
 		    ForwardIt find(ForwardIt first, ForwardIt last, const T& value, Compare comp={})
 			{
@@ -262,20 +259,20 @@ namespace monte_carlo_tree_search
 				return last;
 			}
 	    };
-	    
-	    static 
+
+	    static
 	    Leafnode_collector& get_leafnode_list()
 		{
 			static Leafnode_collector candidate;
 			return candidate;
 		}
-	    
+
         Node * parent = nullptr;
 	    peice  player;
         std::vector<Node *> child;
     };
 
-	
+
     struct Tree
     {
 	    Tree(Node::peice p): root(p){}
@@ -297,7 +294,7 @@ namespace monte_carlo_tree_search
 						(c == 'X' || c == 'x')? Node::X:
 						            Node::EMPTY;
 				}
-			}			    
+			}
 		}
 	    void export_to(std::ostream &o = std::cout)
 		{
@@ -317,7 +314,7 @@ namespace monte_carlo_tree_search
 			  << node->board[2][0] << node->board[2][1] << node->board[2][2]
 			  << "\"; "
 			  << "color = " << (node->player == Node::peice::O ? "blue": "red") << ";]\n";
-			for(auto child: node->child)
+			for (auto child: node->child)
 			{
 				o << "    " << uintptr_t(node)
 				  << " -> " << uintptr_t(child) << "[color = " << (node->player == Node::peice::O ? "blue": "red") << "];\n";
