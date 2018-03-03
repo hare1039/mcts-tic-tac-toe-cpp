@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <list>
 #include <random>
 #include <functional>
 #include <algorithm>
@@ -25,10 +26,7 @@ namespace monte_carlo_tree_search
 	    enum peice{ EMPTY, O, X };
 	    Node(peice p): player(p)
         {
-            for(int i(0); i < BOARD_SIZE; i++)
-                for(int j(0); j < BOARD_SIZE; j++)
-                    board[i][j] = EMPTY;
-            get_leafnode_list().add(this);
+	        get_leafnode_list().add(this);
         }
 
         ~Node()
@@ -50,7 +48,7 @@ namespace monte_carlo_tree_search
         }
 
 	    static
-        peice winner(peice eval_board[BOARD_SIZE][BOARD_SIZE])
+        peice winner(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> const &eval_board)
         {
             if((eval_board[0][0] == eval_board[0][1] && eval_board[0][1] == eval_board[0][2]) ||
                (eval_board[0][0] == eval_board[1][0] && eval_board[1][0] == eval_board[2][0]) )
@@ -71,7 +69,7 @@ namespace monte_carlo_tree_search
         }
 	    
 	    static
-	    std::tuple<int, int> gen_pos_from(peice brd[BOARD_SIZE][BOARD_SIZE])
+	    std::tuple<int, int> gen_pos_from(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> const & brd)
 		{
 			int x(0), y(0);
 			bool full = true;
@@ -106,11 +104,9 @@ namespace monte_carlo_tree_search
         }
 	    
     public: // methods
-        Node& set_board(peice src[BOARD_SIZE][BOARD_SIZE])
+	    Node& set_board(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> &src)
         {
-            for(int i(0); i < BOARD_SIZE; i++)
-                for(int j(0); j < BOARD_SIZE; j++)
-                    board[i][j] = src[i][j];
+	        board = src;
             return *this;
         }
 
@@ -147,13 +143,14 @@ namespace monte_carlo_tree_search
 
         Node& random_play()
         {
+//	        std::cout << "  removed: " << this << "\n"; 
+	        get_leafnode_list().remove(this);//.remove(this->parent);
 	        peice d = winner(this->board);
 	        if(EMPTY != d)
 	        {
 		        this->update_status(d);
 		        return *this;
 	        }
-	        get_leafnode_list().remove(this);
 	        if(child.empty())
 		        generate_all_child();
 
@@ -168,10 +165,8 @@ namespace monte_carlo_tree_search
 	        Node* random_child = child.at(random_in(0, static_cast<int>(child.size()) - 1));
 		        
 
-            peice eval_board[BOARD_SIZE][BOARD_SIZE];
-            for(int i(0); i < BOARD_SIZE; i++)
-                for(int j(0); j < BOARD_SIZE; j++)
-                    eval_board[i][j] = random_child->board[i][j];
+	        std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> eval_board;
+	        eval_board = random_child->board;
             peice p = flip(random_child->player);
             for(;;)
             {
@@ -206,8 +201,8 @@ namespace monte_carlo_tree_search
         }
 	    
     private:
-//	    std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE>board[BOARD_SIZE][BOARD_SIZE];
-	    peice board[BOARD_SIZE][BOARD_SIZE];
+	    std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> board;
+//	    peice board[BOARD_SIZE][BOARD_SIZE];
         /* E == empty
          |   | 0 | 1 | 2 |
          | 0 |   |   |   |
@@ -224,40 +219,47 @@ namespace monte_carlo_tree_search
 
 	    struct Leafnode_collector
 	    {
-		    std::vector<Node *> data;
-		    Node* max() { return *data.end(); }
+		    std::list<Node *> data;
+		    Node* max() { return data.front(); }
 
 		    Leafnode_collector& add(Node * n)
 			{
-				this->add(std::vector<Node *>{n});
-				return *this;
+				return this->add(std::vector<Node *>{n});
 			}
 		    
 		    Leafnode_collector& add(std::vector<Node *> const &x)
 			{
 			    for (auto i: x)
 				    data.push_back(i);	
-			    std::sort(data.begin(), data.end(), [](const Node *A, const Node *B) {
-				    return A->UCT() < B->UCT();
-				});
+//			    this->show();
 			    return *this;
 			}
 		    
 		    Leafnode_collector& remove(Node * n)
 			{
-			    auto target = binary_find(data.begin(), data.end(), n);
+			    auto target = find(data.begin(), data.end(), n);
+//			    std::cout << "  find: " << *target << "\n";
 			    if (target != data.end())
 				    data.erase(target);
+
 			    return *this;
 			}
 
-	    	// copied from http://en.cppreference.com/w/cpp/algorithm/lower_bound
-
-		    template<class ForwardIt, class T, class Compare=std::less<Node *>>
-		    ForwardIt binary_find(ForwardIt first, ForwardIt last, const T& value, Compare comp={})
+		    void show()
 			{
-			    first = std::lower_bound(first, last, value, comp);
-			    return first != last && !comp(value, *first) ? first : last;
+				std::cout << "    size: " << data.size() << "\n";
+				for (auto &n: data)
+					std::cout << "    " << n << " => " << n->UCT() << "\n";
+			}
+
+	    	// copied from http://en.cppreference.com/w/cpp/algorithm/lower_bound
+		    template<class ForwardIt, class T, class Compare=std::equal_to<Node *>>
+		    ForwardIt find(ForwardIt first, ForwardIt last, const T& value, Compare comp={})
+			{
+				for (ForwardIt it = first; it != last; ++it)
+					if (comp(*it, value))
+						return it;
+				return last;
 			}
 	    };
 	    
@@ -276,7 +278,7 @@ namespace monte_carlo_tree_search
 	
     struct Tree
     {
-	    Tree(Node::peice p): root(Node::flip(p)){}
+	    Tree(Node::peice p): root(p){}
         Node root;
 	    void set (std::string path)
 		{
@@ -307,7 +309,8 @@ namespace monte_carlo_tree_search
 	    void visit(Node *node, std::ostream &o)
 		{
 			o << "    " << uintptr_t(node) << "[label = \""
-			  << "Role: Player " << node->player << ", Next Player: " << Node::flip(node->player) << "\n"
+			  << "Node: " << node << "\n"
+			  << "Role: Player " << node->player << ", Next: " << Node::flip(node->player) << "\n"
 			  << "wins/total: " << node->win << "/" << node->total << ", " << (!node->parent? 0: node->UCT()) << "\n"
 			  << node->board[0][0] << node->board[0][1] << node->board[0][2] << "\n"
 			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "\n"
