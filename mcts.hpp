@@ -19,11 +19,17 @@
 namespace monte_carlo_tree_search
 {
 	constexpr int BOARD_SIZE = 3;
+	namespace OPERATION
+	{
+		enum TYPE { SKIP = 0, STOP, CONTINUE };
+	}
+	
 	struct Tree;
     class Node
     {
     public:
 	    enum peice{ EMPTY, O, X };
+	    
 	    Node(peice p): player(p)
         {
 	        get_leafnode_list().add(this);
@@ -141,53 +147,58 @@ namespace monte_carlo_tree_search
 			return *this;
 		}
 
-        Node& random_play()
-        {
-	        get_leafnode_list().remove(this);
+	    OPERATION::TYPE expansion()
+		{
+			// remove myself out of leaf node list
+		    get_leafnode_list().remove(this);
 	        peice d = winner(this->board);
-	        if (EMPTY != d)
+
+	        // this board already have winner. 
+	        if (d != EMPTY)
 	        {
 		        this->update_status(d);
-		        return *this;
+		        return OPERATION::SKIP;
 	        }
-	        if (child.empty())
-		        generate_all_child();
+
+	        // expansion
+	        generate_all_child();
 
 	        // No more children generated. => draw, but count as player 2 wins; end game;
 	        if (child.empty())
 	        {
 		        this->update_status(peice::X);
-		        return *this;
+		        return OPERATION::SKIP;
 	        }
 
+	        return OPERATION::CONTINUE;
+		}
 
-	        Node* random_child = child.at(random_in(0, static_cast<int>(child.size()) - 1));
+	    Node* random_child()
+		{
+		    return child.at(random_in(0, static_cast<int>(child.size()) - 1));
+		}
 
-
-	        std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> eval_board;
-	        eval_board = random_child->board;
-            peice p = flip(random_child->player);
+        peice simulation()
+        {
+	        auto eval_board = this->board;
+	        peice p = flip(this->player);
             for (;;)
             {
+	            // get random position
 	            int x, y;
                 std::tie(x, y) = gen_pos_from(eval_board);
-                if (x == 0)
-                {
-	                this->update_status(EMPTY);
-	                break;
-                }
 
+                // no more position, board full
+                if (x == 0)                
+	                return EMPTY;
+                
                 p = flip(p);
                 eval_board[x][y] = p;
 
                 peice champ = winner(eval_board);
                 if (champ != EMPTY)
-                {
-	                random_child->update_status(champ /* wins */);
-	                break;
-                }
+	                return champ;
             }
-            return *this;
         }
 
 	    void update_status(peice wins)
@@ -209,6 +220,7 @@ namespace monte_carlo_tree_search
          | 2 |   |   |   |
          */
         int win = 0, total = 0;
+	    
 
         double UCT() const
         {
@@ -292,10 +304,35 @@ namespace monte_carlo_tree_search
 					root.board[i][j] =
 						(c == 'O' || c == 'o')? Node::O:
 						(c == 'X' || c == 'x')? Node::X:
-						            Node::EMPTY;
+						                        Node::EMPTY;
 				}
 			}
 		}
+
+	    OPERATION::TYPE play()
+		{
+			// selection
+		    Node * node = this->root.best_node();
+
+		    // lack of candidate node => simulation should stop
+		    if (node == nullptr)
+			    return OPERATION::STOP;
+
+		    // expansion
+		    auto next = node->expansion();
+		    if (next == OPERATION::SKIP)
+			    return OPERATION::SKIP;
+
+		    // simulation
+		    Node * target = node->random_child();
+		    auto   winner = target->simulation();
+
+		    // back propagation
+		    target->update_status(winner);
+		    
+		    return OPERATION::CONTINUE;
+		}
+	    
 	    void export_to(std::ostream &o = std::cout)
 		{
 			o << "digraph monte_carlo_tree_search_result {\n";
