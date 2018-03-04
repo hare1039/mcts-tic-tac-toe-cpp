@@ -30,16 +30,12 @@ namespace monte_carlo_tree_search
     public:
 	    enum peice{ EMPTY, O, X };
 	    
-	    Node(peice p): player(p)
-        {
-	        get_leafnode_list().add(this);
-        }
+	    Node(peice p): player(p) {}
 
         ~Node()
         {
             for (auto &n : child)
                 delete n;
-            get_leafnode_list().remove(this);
         }
 	    friend class Tree;
 
@@ -103,14 +99,8 @@ namespace monte_carlo_tree_search
 		    return distribution(engine);
 	    }
 
-	    static
-	    Node* best_node()
-        {
-	        return get_leafnode_list().max();
-        }
-
     public: // methods
-	    Node& set_board(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> &src)
+	    Node& set_board(std::array<std::array<peice, BOARD_SIZE>, BOARD_SIZE> const &src)
         {
 	        board = src;
             return *this;
@@ -147,10 +137,18 @@ namespace monte_carlo_tree_search
 			return *this;
 		}
 
+	    Node* best_node()
+        {
+	        if (child.empty())
+                return this;
+            return (**std::max_element(child.begin(), child.end(), [](const Node *A, const Node *B) {
+                return A->UCT() < B->UCT();
+		    })).best_node();
+        }
+
+
 	    OPERATION::TYPE expansion()
 		{
-			// remove myself out of leaf node list
-		    get_leafnode_list().remove(this);
 	        peice d = winner(this->board);
 
 	        // this board already have winner. 
@@ -221,64 +219,11 @@ namespace monte_carlo_tree_search
          */
         int win = 0, total = 0;
 	    
-
         double UCT() const
         {
 	        return (total == 0)? std::numeric_limits<double>::max():
-		        static_cast<double>(win) / total + std::sqrt(2) * std::sqrt(std::log((parent)? parent->total: 1) / total);
+		        static_cast<double>(win) / total + std::sqrt(2) * std::sqrt(std::log((parent)? parent->total: 0) / total);
         }
-
-	    struct Leafnode_collector
-	    {
-		    std::list<Node *> data;
-		    Node* max() { return data.front(); }
-
-		    Leafnode_collector& add(Node * n)
-			{
-				return this->add(std::vector<Node *>{n});
-			}
-
-		    Leafnode_collector& add(std::vector<Node *> const &x)
-			{
-			    for (auto i: x)
-				    data.push_back(i);
-			    return *this;
-			}
-
-		    Leafnode_collector& remove(Node * n)
-			{
-			    auto target = find(data.begin(), data.end(), n);
-			    if (target != data.end())
-				    data.erase(target);
-
-			    return *this;
-			}
-
-		    void show()
-			{
-				std::cout << "    size: " << data.size() << "\n";
-				for (auto &n: data)
-					std::cout << "    " << n << " => " << n->UCT() << "\n";
-			}
-
-	    	// ref from http://en.cppreference.com/w/cpp/algorithm/lower_bound
-		    template<class ForwardIt, class T, class Compare=std::equal_to<Node *>>
-		    ForwardIt find(ForwardIt first, ForwardIt last, const T& value, Compare comp={})
-			{
-				for (ForwardIt it = first; it != last; ++it)
-					if (comp(*it, value))
-						return it;
-				return last;
-			}
-	    };
-
-	    static
-	    Leafnode_collector& get_leafnode_list()
-		{
-			static Leafnode_collector candidate;
-			return candidate;
-		}
-
         Node * parent = nullptr;
 	    peice  player;
         std::vector<Node *> child;
