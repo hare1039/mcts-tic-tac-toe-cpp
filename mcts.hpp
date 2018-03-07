@@ -278,14 +278,13 @@ namespace monte_carlo_tree_search
 		    return OPERATION::CONTINUE;
 		}
 	    
-	    void export_to(std::ostream &o = std::cout)
+	    void export_to_dot(std::ostream &o = std::cout)
 		{
 			o << "digraph monte_carlo_tree_search_result {\n";
-			visit(&root, o);
+			visit_dot(&root, o);
 			o << "}";
 		}
-
-	    void visit(Node *node, std::ostream &o)
+	    void visit_dot(Node *node, std::ostream &o)
 		{
 			o << "    " << uintptr_t(node) << "[label = \""
 			  << "Node: " << node << "\n"
@@ -300,8 +299,39 @@ namespace monte_carlo_tree_search
 			{
 				o << "    " << uintptr_t(node)
 				  << " -> " << uintptr_t(child) << "[color = " << (node->player == Node::peice::O ? "blue": "red") << "];\n";
-				visit(child, o);
+				visit_dot(child, o);
 			}
+		}
+
+	    void export_to_html(std::ostream &o = std::cout)
+		{
+			o << "<html><head><title>monte_carlo_tree_search_result</title><link rel='stylesheet' href='//kendo.cdn.telerik.com/2018.1.221/styles/kendo.common.min.css'/><link rel='stylesheet' href='//kendo.cdn.telerik.com/2018.1.221/styles/kendo.default.min.css'/><link rel='stylesheet' href='//kendo.cdn.telerik.com/2018.1.221/styles/kendo.default.mobile.min.css'/><script src='//code.jquery.com/jquery-3.3.1.min.js'></script><script src='//kendo.cdn.telerik.com/2018.1.221/js/kendo.all.min.js'></script></head><body><div id='example'><div class='demo-section k-content'><ul id='treeview'><li> MCTS Tree root";
+			visit_html(&root, o);
+			o << "<li></ul></div><script>$(document).ready(function(){$('#treeview').kendoTreeView();});</script><style>.rootfolder { background-position:0 0;} .folder {background-position:0 -16px;}.pdf {background-position:0 -32px;}.html {background-position: 0 -48px;} .image {background-position:0 -64px;}</style></div></body></html>" << std::endl;
+		}
+
+	    void visit_html(Node *node, std::ostream &o)
+		{
+			o << "<ul>";
+			o << "<li>" << node->board[0][0] << node->board[0][1] << node->board[0][2] << "<br/>"
+			  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "<br/>"
+			  << node->board[2][0] << node->board[2][1] << node->board[2][2] << "</li>";
+
+			for (auto child: node->child)
+			{
+				o << "<li> Player " << child->player
+				  << ", UCT: " << child->UCT() << ", Win: " << (static_cast<double>(child->win) / child->total);
+				visit_html(child, o);
+				o << "</li>";
+			}
+			
+//			if (node->child.empty())
+//			{
+//				o << node->board[0][0] << node->board[0][1] << node->board[0][2] << "<br/>"
+//				  << node->board[1][0] << node->board[1][1] << node->board[1][2] << "<br/>"
+//				  << node->board[2][0] << node->board[2][1] << node->board[2][2];
+//			}
+			o << "</ul>";
 		}
     };
 }

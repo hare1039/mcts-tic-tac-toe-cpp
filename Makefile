@@ -1,8 +1,9 @@
-TARGET	= mcts
-OBJECT	= graph.dot graph.svg
-CXX		= clang++
-CXXFLAGS= -std=c++11 -O2
-LIBS    =
+TARGET	    = mcts
+OBJECT	    = graph.dot graph.svg
+OBJECT_HTML = index.html
+CXX		    = clang++
+CXXFLAGS    = -std=c++11 -O2
+LIBS        =
 
 
 all: main.cpp
@@ -10,7 +11,11 @@ all: main.cpp
 
 .PHONY: clean
 clean:
-	rm $(TARGET) $(OBJECT)
+	rm -f $(TARGET) $(OBJECT) $(OBJECT_HTML)
+
+.PHONY: html
+html: all
+	./mcts index.html
 
 .PHONY: svg
 svg: all
